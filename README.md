@@ -9,7 +9,7 @@ A production-ready Kubernetes deployment for Apache Kafka 4.0.1 using KRaft mode
 - **Kubernetes Native**: StatefulSets, persistent storage, and service discovery
 - **External Access**: Ingress configuration for external client connections
 - **Production Ready**: Health checks, resource management, and data persistence
-- **Comprehensive Testing**: Automated validation scripts with detailed reporting
+- **Comprehensive Testing**: Both dry-run validation and real deployment testing with automated cleanup
 - **Easy Management**: Makefile for common operations and deployment tasks
 
 ## Quick Start
@@ -234,9 +234,11 @@ make deploy-single     # Deploy single-node Kafka
 make deploy-cluster    # Deploy Kafka cluster
 
 # Testing
-make test             # Run comprehensive tests
+make test             # Run dry-run validation tests (safe)
+make test-real        # Run real deployment tests (creates resources)
+make test-real-no-cleanup  # Test and keep resources running
 make quick-test       # Run quick validation
-make validate         # Validate YAML syntax
+make validate         # Validate YAML syntax only
 
 # Management
 make status           # Show Kafka resources
@@ -359,48 +361,74 @@ This project includes a comprehensive testing framework to validate all deployme
 
 ### Test Suite Overview
 
-The `test/` directory contains automated test scripts that validate:
+The `test/` directory contains automated test scripts with two testing modes:
+
+**Dry-Run Validation** (Safe, no resources created):
 - ✅ YAML syntax for all Kubernetes manifests
-- ✅ Resource creation and dependencies
+- ✅ Resource definitions and dependencies
 - ✅ Configuration parameters and environment variables
-- ✅ Health check and probe configurations
-- ✅ Service and ingress port mappings
-- ✅ KRaft mode configuration (no ZooKeeper)
-- ✅ Storage requirements and persistent volume claims
+- ✅ Port mappings and service definitions
+- ✅ Storage requirements and volume specifications
+
+**Real Deployment Testing** (Creates actual resources):
+- ✅ Namespace and resource creation
+- ✅ Pod startup and readiness verification
+- ✅ Kafka broker connectivity and functionality
+- ✅ Topic creation and replication
+- ✅ Producer/consumer message flow
+- ✅ Service discovery and internal connectivity
+- ✅ Persistent volume binding and data persistence
+- ✅ Ingress configuration and external access
 
 ### Running Tests
 
-#### Using Makefile (Recommended)
+The testing framework provides two modes: dry-run validation and real deployment testing.
+
+#### Dry-Run Tests (Safe Validation)
 ```bash
-# Run comprehensive test suite (8 test categories)
-make test
-
-# Run quick validation tests
-make quick-test
-
-# Validate YAML syntax only
-make validate
+# Validate configurations without creating resources
+make test              # Comprehensive validation (8 test categories)
+make quick-test        # Quick validation check
+make validate          # YAML syntax validation only
 ```
 
-#### Direct Script Execution
+#### Real Deployment Tests (Creates Actual Resources)
 ```bash
-# Comprehensive testing with detailed reports
-./test/test-deployment.sh
+# Deploy and test actual Kafka instances
+make test-real         # Full deployment test with automatic cleanup
+make test-real-no-cleanup  # Test and keep resources running
 
-# Quick validation for development
-./test/quick-test.sh
+# Direct execution with options
+./test/test-deployment-real.sh              # Default: auto-cleanup
+./test/test-deployment-real.sh --no-cleanup  # Keep resources after test
+./test/test-deployment-real.sh --namespace kafka-test  # Use custom namespace
 ```
+
+**⚠️ Warning**: Real tests will create actual resources in your cluster. They include:
+- Namespace creation
+- Pod deployments with readiness checks
+- Kafka functionality testing (topics, producers, consumers)
+- Service connectivity verification
+- Persistent storage validation
+- Automatic cleanup (unless --no-cleanup is specified)
 
 ### Test Scripts
 
-1. **`test-deployment.sh`** - Full test suite that performs:
+1. **`test-deployment.sh`** - Dry-run validation suite:
    - Kubernetes manifest validation
    - Deployment structure verification
    - Resource requirement analysis
    - Configuration compliance checks
-   - Generates timestamped test reports
+   - Safe to run anytime (no resources created)
 
-2. **`quick-test.sh`** - Lightweight validation for rapid feedback:
+2. **`test-deployment-real.sh`** - Real deployment testing:
+   - Actually deploys Kafka to your cluster
+   - Waits for pods to become ready
+   - Tests Kafka functionality (topics, messages)
+   - Validates services and storage
+   - Includes automatic cleanup
+
+3. **`quick-test.sh`** - Lightweight validation:
    - Basic YAML syntax checking
    - Resource count verification
    - Quick health summary

@@ -5,20 +5,44 @@
 # Default target
 help:
 	@echo "Kafka Kubernetes Deployment Commands:"
-	@echo "  make test          - Run comprehensive deployment tests"
-	@echo "  make quick-test    - Run quick validation tests"
-	@echo "  make validate      - Validate all YAML files"
-	@echo "  make namespace     - Create kafka namespace"
-	@echo "  make deploy-single - Deploy single-node Kafka"
-	@echo "  make deploy-cluster- Deploy Kafka cluster"
-	@echo "  make clean-single  - Remove single-node deployment"
-	@echo "  make clean-cluster - Remove cluster deployment"
-	@echo "  make clean-all     - Remove all Kafka resources"
+	@echo ""
+	@echo "Testing Commands:"
+	@echo "  make test                - Run dry-run validation tests (safe)"
+	@echo "  make test-real           - Run REAL deployment tests (creates resources)"
+	@echo "  make test-real-no-cleanup- Run REAL tests but keep resources after"
+	@echo "  make quick-test          - Run quick validation tests"
+	@echo "  make validate            - Validate all YAML files"
+	@echo ""
+	@echo "Deployment Commands:"
+	@echo "  make namespace           - Create kafka namespace"
+	@echo "  make deploy-single       - Deploy single-node Kafka"
+	@echo "  make deploy-cluster      - Deploy Kafka cluster"
+	@echo ""
+	@echo "Cleanup Commands:"
+	@echo "  make clean-single        - Remove single-node deployment"
+	@echo "  make clean-cluster       - Remove cluster deployment"
+	@echo "  make clean-all           - Remove all Kafka resources"
+	@echo ""
+	@echo "Management Commands:"
+	@echo "  make status              - Show Kafka resources"
+	@echo "  make logs-single         - View single-node logs"
+	@echo "  make logs-broker         - View broker logs"
+	@echo "  make logs-controller     - View controller logs"
+	@echo "  make port-forward-single - Forward port 9092 (single-node)"
+	@echo "  make port-forward-cluster- Forward port 9092 (cluster)"
 
 # Testing targets
 test:
 	@echo "Running comprehensive tests..."
 	@./test/test-deployment.sh
+
+test-real:
+	@echo "Running REAL deployment tests (creates actual resources)..."
+	@./test/test-deployment-real.sh
+
+test-real-no-cleanup:
+	@echo "Running REAL deployment tests (keeps resources after test)..."
+	@./test/test-deployment-real.sh --no-cleanup
 
 quick-test:
 	@echo "Running quick tests..."

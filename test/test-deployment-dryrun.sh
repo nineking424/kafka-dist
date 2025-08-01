@@ -2,7 +2,6 @@
 
 # Kafka Kubernetes Deployment Test Script
 # This script validates all aspects of the Kafka deployment configurations
-# WARNING: This script now performs REAL deployments, not just dry-runs!
 
 set -euo pipefail
 
