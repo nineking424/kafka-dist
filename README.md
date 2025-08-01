@@ -9,6 +9,8 @@ A production-ready Kubernetes deployment for Apache Kafka 4.0.1 using KRaft mode
 - **Kubernetes Native**: StatefulSets, persistent storage, and service discovery
 - **External Access**: Ingress configuration for external client connections
 - **Production Ready**: Health checks, resource management, and data persistence
+- **Comprehensive Testing**: Automated validation scripts with detailed reporting
+- **Easy Management**: Makefile for common operations and deployment tasks
 
 ## Quick Start
 
@@ -21,6 +23,30 @@ kubectl apply -f single/
 
 # OR deploy multi-node cluster (production)
 kubectl apply -f cluster/
+```
+
+## Project Structure
+
+```
+kafka-dist/
+├── 00-namespace.yaml          # Kafka namespace definition
+├── single/                    # Single-node deployment
+│   ├── statefulset.yaml      # Kafka broker/controller StatefulSet
+│   ├── service.yaml          # Headless and ClusterIP services
+│   └── ingress.yaml          # Ingress for external access
+├── cluster/                   # Multi-node cluster deployment
+│   ├── controller-statefulset.yaml  # KRaft controllers (3 replicas)
+│   ├── broker-statefulset.yaml      # Kafka brokers (3 replicas)
+│   ├── services.yaml               # All required services
+│   └── ingress.yaml                # Ingress configuration
+├── test/                      # Testing framework
+│   ├── test-deployment.sh    # Comprehensive test suite
+│   ├── quick-test.sh         # Quick validation script
+│   ├── TEST_REPORT.md        # Sample test report
+│   └── README.md             # Testing documentation
+├── Makefile                   # Automation commands
+├── README.md                  # This file
+└── CLAUDE.md                  # AI-assisted development guide
 ```
 
 ## Prerequisites
@@ -197,6 +223,37 @@ kubectl exec -it kafka-0 -n kafka -- \
 
 ## Operations
 
+### Quick Commands (Makefile)
+
+A Makefile is provided for common operations:
+
+```bash
+# Deployment
+make namespace         # Create kafka namespace
+make deploy-single     # Deploy single-node Kafka
+make deploy-cluster    # Deploy Kafka cluster
+
+# Testing
+make test             # Run comprehensive tests
+make quick-test       # Run quick validation
+make validate         # Validate YAML syntax
+
+# Management
+make status           # Show Kafka resources
+make logs-single      # View single-node logs
+make logs-broker      # View broker logs
+make logs-controller  # View controller logs
+
+# Cleanup
+make clean-single     # Remove single-node deployment
+make clean-cluster    # Remove cluster deployment
+make clean-all        # Remove all Kafka resources
+
+# Development
+make port-forward-single   # Forward port 9092 (single-node)
+make port-forward-cluster  # Forward port 9092 (cluster)
+```
+
 ### Scaling
 
 #### Single-Node
@@ -295,6 +352,83 @@ kubectl apply -f single/   # or cluster/
 3. **Authentication**: Configure SASL/SCRAM or mTLS for client authentication
 4. **Authorization**: Enable Kafka ACLs for fine-grained access control
 5. **Secrets Management**: Use Kubernetes secrets for sensitive configurations
+
+## Testing
+
+This project includes a comprehensive testing framework to validate all deployment configurations before applying them to your Kubernetes cluster.
+
+### Test Suite Overview
+
+The `test/` directory contains automated test scripts that validate:
+- ✅ YAML syntax for all Kubernetes manifests
+- ✅ Resource creation and dependencies
+- ✅ Configuration parameters and environment variables
+- ✅ Health check and probe configurations
+- ✅ Service and ingress port mappings
+- ✅ KRaft mode configuration (no ZooKeeper)
+- ✅ Storage requirements and persistent volume claims
+
+### Running Tests
+
+#### Using Makefile (Recommended)
+```bash
+# Run comprehensive test suite (8 test categories)
+make test
+
+# Run quick validation tests
+make quick-test
+
+# Validate YAML syntax only
+make validate
+```
+
+#### Direct Script Execution
+```bash
+# Comprehensive testing with detailed reports
+./test/test-deployment.sh
+
+# Quick validation for development
+./test/quick-test.sh
+```
+
+### Test Scripts
+
+1. **`test-deployment.sh`** - Full test suite that performs:
+   - Kubernetes manifest validation
+   - Deployment structure verification
+   - Resource requirement analysis
+   - Configuration compliance checks
+   - Generates timestamped test reports
+
+2. **`quick-test.sh`** - Lightweight validation for rapid feedback:
+   - Basic YAML syntax checking
+   - Resource count verification
+   - Quick health summary
+
+### Test Output
+
+Tests provide colored output for easy reading:
+- 🟢 **Green**: Test passed
+- 🔴 **Red**: Test failed
+- 🟡 **Yellow**: Warnings or info
+- 🔵 **Blue**: Test headers
+
+Test results are saved to timestamped files: `test/test-results-YYYYMMDD-HHMMSS.txt`
+
+### CI/CD Integration
+
+The test scripts return appropriate exit codes:
+- `0` - All tests passed
+- `1` - One or more tests failed
+
+This makes them suitable for CI/CD pipeline integration:
+```yaml
+# Example GitHub Actions
+- name: Validate Kafka Deployment
+  run: make test
+```
+
+See [test/README.md](test/README.md) for detailed testing documentation and examples.
 
 ## Contributing
 
