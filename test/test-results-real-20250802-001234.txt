@@ -1,0 +1,71 @@
+Kafka Kubernetes Deployment REAL Test Results
+============================================
+Date: Sat Aug 2 00:12:34 KST 2025
+Total Tests: 5
+Passed: 1
+Failed: 4
+
+Test Results:
+-------------
+✅ Namespace Creation: PASSED - Namespace 'kafka' created successfully
+❌ Single-Node Deployment: FAILED - Could not create test topic
+❌ Cluster Deployment: FAILED - Controller pods did not become ready
+❌ Service Connectivity: FAILED - No services found
+❌ Persistent Storage: FAILED - No PVCs found
+
+Status: ❌ SOME TESTS FAILED
+
+Detailed Analysis:
+-----------------
+
+1. Namespace Creation: SUCCESS
+   - The kafka namespace was successfully created
+
+2. Single-Node Deployment: PARTIAL SUCCESS / FAILED
+   - Pod kafka-0 started successfully and reached Running status
+   - However, Kafka broker failed to initialize properly
+   - Could not create test topic, indicating Kafka service issues
+
+3. Cluster Deployment: FAILED
+   - Controller pods failed to become ready within 180 seconds
+   - The script has a bug in line 97 causing comparison errors
+   - Pods were created but never reached Ready state
+
+4. Service Connectivity: FAILED
+   - Could not test service connectivity due to previous failures
+   - Services were likely created but pods weren't ready
+
+5. Persistent Storage: FAILED
+   - PVCs were not tested due to previous deployment failures
+
+Issues Identified:
+-----------------
+1. Script Bug: Line 97 in test-deployment-real.sh has a comparison error
+   - The ready_pods count parsing is returning multi-line output
+   - This causes "integer expression expected" errors
+
+2. Kafka Configuration Issues:
+   - Single-node Kafka started but couldn't create topics
+   - Cluster controllers never became ready
+   - May indicate KRaft configuration problems
+
+3. Possible Root Causes:
+   - Incorrect KAFKA_NODE_ID configuration for controllers
+   - Controller quorum voters configuration may be incorrect
+   - Storage class or PVC binding issues
+   - Resource constraints in the cluster
+
+Recommendations:
+---------------
+1. Fix the script bug in wait_for_pods function (line 97)
+2. Debug Kafka pod logs to identify initialization failures
+3. Verify KRaft configuration, especially node IDs and quorum voters
+4. Check cluster resource availability (CPU, memory, storage)
+5. Test with simpler configurations first before full cluster deployment
+
+Test Environment:
+----------------
+- Kubernetes Version: v1.30.3
+- Test Mode: Real deployment with automatic cleanup
+- Namespace: kafka
+- Cleanup: Successful (all resources removed after test)

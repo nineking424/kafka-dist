@@ -17,6 +17,15 @@ spec:
       containers:
       - name: kafka
         image: apache/kafka:4.0.1-rc0
+        command:
+        - sh
+        - -c
+        - |
+          # Format storage if needed
+          if [ ! -f /var/lib/kafka/data/meta.properties ]; then
+            /opt/kafka/bin/kafka-storage.sh format -t ${CLUSTER_ID} -c /opt/kafka/config/server.properties --standalone --ignore-formatted
+          fi
+          exec /opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/server.properties
         ports:
         - containerPort: 9092
           name: client
@@ -53,6 +62,13 @@ spec:
           value: "1"
         - name: KAFKA_LOG_DIRS
           value: "/var/lib/kafka/data"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
         volumeMounts:
         - name: kafka-data
           mountPath: /var/lib/kafka/data

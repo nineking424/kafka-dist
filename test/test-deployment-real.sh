@@ -92,7 +92,7 @@ wait_for_pods() {
     
     local count=0
     while [ $count -lt $timeout ]; do
-        local ready_pods=$(kubectl get pods -n $namespace -l "$label_selector" -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' | grep -o "True" | wc -l || echo "0")
+        local ready_pods=$(kubectl get pods -n $namespace -l "$label_selector" -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' | grep -o "True" | wc -l | tr -d '[:space:]' || echo "0")
         
         if [ "$ready_pods" -eq "$expected_count" ]; then
             print_color "$GREEN" "All $expected_count pods are ready!"
@@ -181,11 +181,11 @@ test_single_node_deployment() {
                 print_color "$YELLOW" "Testing Kafka broker connectivity..."
                 
                 # Create a test topic
-                if kubectl exec -n $NAMESPACE kafka-0 -- kafka-topics.sh --bootstrap-server localhost:9092 --create --topic test-topic --partitions 1 --replication-factor 1 2>/dev/null; then
+                if kubectl exec -n $NAMESPACE kafka-0 -- /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic test-topic --partitions 1 --replication-factor 1 2>/dev/null; then
                     print_color "$GREEN" "✓ Successfully created test topic"
                     
                     # List topics
-                    if kubectl exec -n $NAMESPACE kafka-0 -- kafka-topics.sh --bootstrap-server localhost:9092 --list | grep -q "test-topic"; then
+                    if kubectl exec -n $NAMESPACE kafka-0 -- /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list | grep -q "test-topic"; then
                         print_color "$GREEN" "✓ Topic listing works"
                         record_test "Single-Node Deployment" "PASS" "Kafka is running and functional"
                     else
@@ -252,15 +252,15 @@ test_cluster_deployment() {
                 sleep 10
                 
                 # Create test topic with replication
-                if kubectl exec -n $NAMESPACE kafka-broker-0 -- kafka-topics.sh --bootstrap-server localhost:9092 --create --topic cluster-test --partitions 3 --replication-factor 3 2>/dev/null; then
+                if kubectl exec -n $NAMESPACE kafka-broker-0 -- /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic cluster-test --partitions 3 --replication-factor 3 2>/dev/null; then
                     print_color "$GREEN" "✓ Created replicated topic"
                     
                     # Describe topic to verify replication
-                    if kubectl exec -n $NAMESPACE kafka-broker-0 -- kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic cluster-test | grep -q "ReplicationFactor: 3"; then
+                    if kubectl exec -n $NAMESPACE kafka-broker-0 -- /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic cluster-test | grep -q "ReplicationFactor: 3"; then
                         print_color "$GREEN" "✓ Topic replication verified"
                         
                         # Check cluster metadata
-                        if kubectl exec -n $NAMESPACE kafka-broker-0 -- kafka-metadata-shell.sh --snapshot /var/lib/kafka/data/__cluster_metadata-0/00000000000000000000.log --print-brokers 2>/dev/null | grep -q "BROKER"; then
+                        if kubectl exec -n $NAMESPACE kafka-broker-0 -- /opt/kafka/bin/kafka-metadata-shell.sh --snapshot /var/lib/kafka/data/__cluster_metadata-0/00000000000000000000.log --print-brokers 2>/dev/null | grep -q "BROKER"; then
                             print_color "$GREEN" "✓ Cluster metadata accessible"
                             record_test "Cluster Deployment" "PASS" "Kafka cluster is running with proper replication"
                         else
@@ -335,11 +335,11 @@ test_persistent_storage() {
             
             # Create a test message
             echo "test-message-$(date +%s)" | kubectl exec -i -n $NAMESPACE kafka-broker-0 -- \
-                kafka-console-producer.sh --bootstrap-server localhost:9092 --topic cluster-test 2>/dev/null
+                /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic cluster-test 2>/dev/null
             
             # Read it back
             if kubectl exec -n $NAMESPACE kafka-broker-0 -- \
-                kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic cluster-test \
+                /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic cluster-test \
                 --from-beginning --max-messages 1 --timeout-ms 5000 2>/dev/null | grep -q "test-message"; then
                 print_color "$GREEN" "✓ Data persistence verified"
                 record_test "Persistent Storage" "PASS" "Storage is working correctly"
