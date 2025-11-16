@@ -39,6 +39,12 @@ data:
     echo "Configuration generated successfully at /shared/controller.properties"
     echo "NODE_ID: $NODE_ID"
 
+    # Clean up stale lock file if exists
+    if [ -f /var/lib/kafka/data/.lock ]; then
+      echo "Removing stale lock file..."
+      rm -f /var/lib/kafka/data/.lock
+    fi
+
     # Format storage if needed
     if [ ! -f /var/lib/kafka/data/meta.properties ]; then
       echo "Formatting storage with cluster ID: ${CLUSTER_ID}"
