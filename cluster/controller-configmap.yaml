@@ -1,0 +1,48 @@
+# ConfigMap for Kafka Controller configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-controller-config
+  namespace: kafka
+data:
+  # Base properties template for controllers
+  controller-base.properties: |
+    # Basic controller properties
+    process.roles=controller
+    controller.listener.names=CONTROLLER
+    listener.security.protocol.map=CONTROLLER:PLAINTEXT
+    log.dirs=/var/lib/kafka/data
+
+    # Quorum configuration
+    controller.quorum.voters=0@kafka-controller-0.kafka-controller.kafka.svc.cluster.local:29093,1@kafka-controller-1.kafka-controller.kafka.svc.cluster.local:29093,2@kafka-controller-2.kafka-controller.kafka.svc.cluster.local:29093
+
+  # Script to generate final controller configuration
+  generate-controller-config.sh: |
+    #!/bin/bash
+    set -e
+
+    # Extract NODE_ID from hostname
+    NODE_ID=${HOSTNAME##*-}
+    echo "Generating controller configuration for NODE_ID=$NODE_ID"
+
+    # Copy base properties
+    cp /config/controller-base.properties /shared/controller.properties
+
+    # Add dynamic properties
+    cat >> /shared/controller.properties <<EOF
+
+    # Dynamic properties (generated at runtime)
+    node.id=$NODE_ID
+    listeners=CONTROLLER://:29093
+    EOF
+
+    echo "Configuration generated successfully at /shared/controller.properties"
+    echo "NODE_ID: $NODE_ID"
+
+    # Format storage if needed
+    if [ ! -f /var/lib/kafka/data/meta.properties ]; then
+      echo "Formatting storage with cluster ID: ${CLUSTER_ID}"
+      /opt/kafka/bin/kafka-storage.sh format -t ${CLUSTER_ID} -c /shared/controller.properties --ignore-formatted
+    else
+      echo "Storage already formatted, skipping..."
+    fi

@@ -4,7 +4,7 @@ metadata:
   name: kafka-controller
   namespace: kafka
 spec:
-  serviceName: kafka-controller-headless
+  serviceName: kafka-controller
   replicas: 3
   selector:
     matchLabels:
@@ -14,49 +14,35 @@ spec:
       labels:
         app: kafka-controller
     spec:
+      initContainers:
+      - name: config-generator
+        image: apache/kafka:4.1.1
+        env:
+        - name: CLUSTER_ID
+          value: "4L6g3nShT-eMCtK--X86sw"
+        command:
+        - /bin/bash
+        - /config/generate-controller-config.sh
+        volumeMounts:
+        - name: config-scripts
+          mountPath: /config
+        - name: shared-config
+          mountPath: /shared
+        - name: kafka-data
+          mountPath: /var/lib/kafka/data
       containers:
       - name: controller
-        image: apache/kafka:4.0.1-rc0
+        image: apache/kafka:4.1.1
         ports:
         - containerPort: 29093
           name: controller
-        env:
-        - name: KAFKA_PROCESS_ROLES
-          value: "controller"
-        - name: KAFKA_CONTROLLER_QUORUM_VOTERS
-          value: "0@kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:29093,1@kafka-controller-1.kafka-controller-headless.kafka.svc.cluster.local:29093,2@kafka-controller-2.kafka-controller-headless.kafka.svc.cluster.local:29093"
-        - name: KAFKA_LISTENERS
-          value: "CONTROLLER://:29093"
-        - name: KAFKA_CONTROLLER_LISTENER_NAMES
-          value: "CONTROLLER"
-        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
-          value: "CONTROLLER:PLAINTEXT"
-        - name: CLUSTER_ID
-          value: "4L6g3nShT-eMCtK--X86sw"
-        - name: KAFKA_LOG_DIRS
-          value: "/var/lib/kafka/data"
         command:
         - sh
         - -c
         - |
-          export KAFKA_NODE_ID=${HOSTNAME##*-}
-          echo "Starting Kafka controller with NODE_ID=$KAFKA_NODE_ID"
-          # Create a config override file
-          cat <<EOF > /tmp/controller.properties
-          # Basic controller properties
-          process.roles=controller
-          node.id=$KAFKA_NODE_ID
-          controller.quorum.voters=${KAFKA_CONTROLLER_QUORUM_VOTERS}
-          listeners=${KAFKA_LISTENERS}
-          controller.listener.names=${KAFKA_CONTROLLER_LISTENER_NAMES}
-          listener.security.protocol.map=${KAFKA_LISTENER_SECURITY_PROTOCOL_MAP}
-          log.dirs=${KAFKA_LOG_DIRS}
-          EOF
-          # Format storage if needed
-          if [ ! -f /var/lib/kafka/data/meta.properties ]; then
-            /opt/kafka/bin/kafka-storage.sh format -t ${CLUSTER_ID} -c /tmp/controller.properties --ignore-formatted
-          fi
-          exec /opt/kafka/bin/kafka-server-start.sh /tmp/controller.properties
+          # Start Kafka controller with the generated configuration
+          echo "Starting Kafka controller..."
+          exec /opt/kafka/bin/kafka-server-start.sh /shared/controller.properties
         resources:
           requests:
             memory: "512Mi"
@@ -67,6 +53,8 @@ spec:
         volumeMounts:
         - name: kafka-data
           mountPath: /var/lib/kafka/data
+        - name: shared-config
+          mountPath: /shared
         livenessProbe:
           tcpSocket:
             port: 29093
@@ -77,6 +65,13 @@ spec:
             port: 29093
           initialDelaySeconds: 30
           periodSeconds: 10
+      volumes:
+      - name: config-scripts
+        configMap:
+          name: kafka-controller-config
+          defaultMode: 0755
+      - name: shared-config
+        emptyDir: {}
   volumeClaimTemplates:
   - metadata:
       name: kafka-data
