@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: ymsimgsync--imgkafka-dev-config
+  name: kafka-controller-config
   namespace: kafka
 data:
   # Base properties template for controllers
