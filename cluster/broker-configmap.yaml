@@ -35,7 +35,7 @@ data:
     echo "Generating broker configuration for NODE_ID=$NODE_ID"
 
     # Set dynamic advertised listeners
-    ADVERTISED_LISTENERS="EXTERNAL://192.168.3.14:9092,INTERNAL://${HOSTNAME}.kafka-broker.kafka.svc.cluster.local:19092"
+    ADVERTISED_LISTENERS="EXTERNAL://${HOSTNAME}.kafka-broker:9092,INTERNAL://${HOSTNAME}.kafka-broker:19092"
 
     # Copy base properties
     cp /config/broker-base.properties /shared/broker.properties
