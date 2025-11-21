@@ -14,7 +14,7 @@ data:
     log.dirs=/var/lib/kafka/data
 
     # Quorum configuration
-    controller.quorum.voters=0@kafka-controller-0.kafka-controller.kafka.svc.cluster.local:29093,1@kafka-controller-1.kafka-controller.kafka.svc.cluster.local:29093,2@kafka-controller-2.kafka-controller.kafka.svc.cluster.local:29093
+    controller.quorum.voters=0@kafka-controller-0.kafka-controller:29093,1@kafka-controller-1.kafka-controller:29093,2@kafka-controller-2.kafka-controller:29093
 
   # Script to generate final controller configuration
   generate-controller-config.sh: |

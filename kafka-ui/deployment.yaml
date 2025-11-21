@@ -26,7 +26,6 @@ spec:
           value: "kafka-cluster"
         - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
           value: "kafka-broker-0.kafka-broker:9092,kafka-broker-1.kafka-broker:9092,kafka-broker-2.kafka-broker:9092"
-          # value: "kafka-broker-0.kafka-broker.kafka.svc.cluster.local:19092,kafka-broker-1.kafka-broker.kafka.svc.cluster.local:19092,kafka-broker-2.kafka-broker.kafka.svc.cluster.local:19092"
         - name: DYNAMIC_CONFIG_ENABLED
           value: "true"
         resources:

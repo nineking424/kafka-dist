@@ -43,10 +43,6 @@ spec:
         - sh
         - -c
         - |
-          # Give controllers time to start up
-          echo "Waiting 30 seconds for controllers to initialize..."
-          sleep 30
-
           # Start Kafka with the generated configuration
           echo "Starting Kafka broker..."
           exec /opt/kafka/bin/kafka-server-start.sh /shared/broker.properties
@@ -68,6 +64,7 @@ spec:
           periodSeconds: 10
         readinessProbe:
           tcpSocket:
+            port: 9092
           periodSeconds: 10
       volumes:
       - name: config-scripts
