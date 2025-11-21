@@ -1,16 +1,43 @@
 # Kafka Kubernetes Distribution
 
-A production-ready Kubernetes deployment for Apache Kafka 4.0.1 using KRaft mode (no ZooKeeper required). This repository provides both single-node and multi-node cluster configurations optimized for Kubernetes environments.
+Production-ready Kubernetes deployment for Apache Kafka 4.0.1 using KRaft mode (no ZooKeeper). This repository provides both single-node and multi-node cluster configurations with modern Kubernetes patterns and best practices.
 
 ## Features
 
 - **KRaft Mode**: Modern Kafka deployment without ZooKeeper dependency
+- **ConfigMap + Init Container Pattern**: Clean separation of configuration management
 - **Dual Deployment Modes**: Single-node for development, multi-node cluster for production
-- **Kubernetes Native**: StatefulSets, persistent storage, and service discovery
-- **External Access**: Ingress configuration for external client connections
-- **Production Ready**: Health checks, resource management, and data persistence
-- **Comprehensive Testing**: Both dry-run validation and real deployment testing with automated cleanup
-- **Easy Management**: Makefile for common operations and deployment tasks
+- **Kubernetes Native**: StatefulSets with proper service discovery and persistent storage
+- **Production Ready**: Health checks, resource management, lock file handling, and data persistence
+- **Comprehensive Testing**: Dry-run validation and real deployment testing with automated cleanup
+- **Easy Management**: Makefile automation and Kaskade TUI support
+
+## Architecture Overview
+
+### Configuration Management
+
+This project uses the **ConfigMap + Init Container pattern** for configuration management:
+
+1. **ConfigMaps** store base configuration templates
+2. **Init Containers** generate dynamic configuration at runtime
+3. **Clean separation** between static and dynamic configuration
+4. **Automatic lock file cleanup** prevents startup failures
+
+### Service Architecture
+
+Services follow a clear naming convention for better clarity:
+
+- `kafka-broker`: Headless service for broker StatefulSet
+- `kafka-client`: Client-facing service for external connections
+- `kafka-controller`: Headless service for controller StatefulSet
+
+### Listener Configuration
+
+Clear distinction between internal and external communication:
+
+- **EXTERNAL**: Client connections from outside the cluster
+- **INTERNAL**: Inter-broker communication within the cluster
+- **CONTROLLER**: KRaft consensus protocol between controllers
 
 ## Quick Start
 
@@ -29,161 +56,125 @@ kubectl apply -f cluster/
 
 ```
 kafka-dist/
-├── 00-namespace.yaml          # Kafka namespace definition
-├── single/                    # Single-node deployment
-│   ├── statefulset.yaml      # Kafka broker/controller StatefulSet
-│   ├── service.yaml          # Headless and ClusterIP services
-│   └── ingress.yaml          # Ingress for external access
-├── cluster/                   # Multi-node cluster deployment
-│   ├── controller-statefulset.yaml  # KRaft controllers (3 replicas)
-│   ├── broker-statefulset.yaml      # Kafka brokers (3 replicas)
-│   ├── services.yaml               # All required services
-│   └── ingress.yaml                # Ingress configuration
-├── test/                      # Testing framework
-│   ├── test-deployment.sh    # Comprehensive test suite
-│   ├── quick-test.sh         # Quick validation script
-│   ├── TEST_REPORT.md        # Sample test report
-│   └── README.md             # Testing documentation
-├── Makefile                   # Automation commands
-├── README.md                  # This file
-└── CLAUDE.md                  # AI-assisted development guide
+├── 00-namespace.yaml                    # Kafka namespace definition
+├── single/                              # Single-node deployment
+│   ├── statefulset.yaml                # Combined broker/controller
+│   ├── service.yaml                    # Headless and client services
+│   └── configmap.yaml                  # Single-node configuration
+├── cluster/                             # Multi-node cluster deployment
+│   ├── broker-statefulset.yaml         # Kafka brokers (3 replicas)
+│   ├── broker-configmap.yaml           # Broker configuration template
+│   ├── broker-service.yaml             # Broker services
+│   ├── controller-statefulset.yaml     # KRaft controllers (3 replicas)
+│   ├── controller-configmap.yaml       # Controller configuration template
+│   └── controller-service.yaml         # Controller service
+├── test/                                # Testing framework
+│   ├── test-deployment.sh              # Dry-run validation suite
+│   ├── test-deployment-real.sh         # Real deployment testing
+│   └── quick-test.sh                   # Quick validation
+├── Makefile                             # Automation commands
+├── README.md                            # This file
+└── CLAUDE.md                            # AI-assisted development guide
 ```
 
 ## Prerequisites
 
 - Kubernetes cluster (v1.21+)
-- kubectl CLI tool configured
+- kubectl CLI configured
 - Storage class for persistent volumes
-- Ingress controller (for external access)
+- 192.168.3.14 as the external IP for broker access (configurable)
 
-## Architecture
-
-### Single-Node Deployment
-
-The single-node deployment (`single/` directory) is designed for development and testing:
-
-- **Combined Roles**: Single Kafka instance acts as both broker and controller
-- **Minimal Resources**: Reduced resource requirements for development environments
-- **Simple Configuration**: All-in-one deployment with single StatefulSet
-- **Components**:
-  - 1x Kafka StatefulSet (broker + controller)
-  - 1x Headless Service for internal communication
-  - 1x Ingress for external access
-  - 10Gi persistent volume for data
-
-### Multi-Node Cluster Deployment
-
-The cluster deployment (`cluster/` directory) is designed for production use:
-
-- **Separated Roles**: Dedicated controller and broker nodes for better scalability
-- **High Availability**: 3 controllers and 3 brokers for fault tolerance
-- **Production Configuration**: Optimized for reliability and performance
-- **Components**:
-  - 3x Controller StatefulSet (KRaft consensus)
-  - 3x Broker StatefulSet (data storage and client serving)
-  - Multiple services for internal and external communication
-  - Ingress configuration for external access
-  - Persistent storage for each node
-
-## Deployment Guide
+## Deployment Architectures
 
 ### Single-Node Deployment
 
-1. **Create the namespace**:
-   ```bash
-   kubectl apply -f 00-namespace.yaml
-   ```
+The single-node deployment (`single/` directory) for development and testing:
 
-2. **Deploy Kafka**:
-   ```bash
-   kubectl apply -f single/
-   ```
-
-3. **Verify deployment**:
-   ```bash
-   # Check pod status
-   kubectl get pods -n kafka
-   
-   # Check services
-   kubectl get svc -n kafka
-   
-   # View logs
-   kubectl logs -n kafka kafka-0
-   ```
-
-4. **Test connectivity**:
-   ```bash
-   # Create a test pod
-   kubectl run -it --rm kafka-test \
-     --image=apache/kafka:4.0.1-rc0 \
-     --restart=Never -n kafka -- \
-     kafka-topics.sh --bootstrap-server kafka-headless:9092 --list
-   ```
+- **Combined Roles**: Single instance acts as both broker and controller
+- **Simplified Configuration**: All-in-one deployment with single StatefulSet
+- **ConfigMap**: Base configuration with runtime property generation
+- **Resource Requirements**: 1GB memory, 500m CPU
+- **Storage**: 10Gi persistent volume
 
 ### Multi-Node Cluster Deployment
 
-1. **Create the namespace**:
-   ```bash
-   kubectl apply -f 00-namespace.yaml
+The cluster deployment (`cluster/` directory) for production use:
+
+#### Controllers (3 replicas)
+- **Dedicated Role**: KRaft consensus management only
+- **Node IDs**: 0, 1, 2 (automatically assigned from pod ordinal)
+- **ConfigMap**: `kafka-controller-config` with base properties
+- **Init Container**: Generates node-specific configuration
+- **Resource Requirements**: 1GB memory, 500m CPU per controller
+- **Storage**: 5Gi persistent volume per controller
+
+#### Brokers (3 replicas)
+- **Dedicated Role**: Data storage and client serving
+- **Node IDs**: 3, 4, 5 (pod ordinal + 3)
+- **ConfigMap**: `kafka-broker-config` with base properties
+- **Init Container**: Generates node-specific configuration with advertised listeners
+- **Resource Requirements**: 2GB memory, 1 CPU per broker
+- **Storage**: 20Gi persistent volume per broker
+
+## Configuration Details
+
+### ConfigMap + Init Container Pattern
+
+Each StatefulSet uses a two-stage configuration process:
+
+1. **ConfigMap** provides base configuration template:
+   ```yaml
+   data:
+     broker-base.properties: |
+       # Static configuration
+       process.roles=broker
+       listener.security.protocol.map=CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
    ```
 
-2. **Deploy the cluster**:
+2. **Init Container** generates runtime configuration:
    ```bash
-   kubectl apply -f cluster/
+   # Calculate NODE_ID from pod ordinal
+   NODE_ID=$((${HOSTNAME##*-} + 3))
+
+   # Generate advertised listeners
+   ADVERTISED_LISTENERS="EXTERNAL://192.168.3.14:9092,INTERNAL://${HOSTNAME}.kafka-broker.kafka.svc.cluster.local:19092"
+
+   # Clean up stale lock files
+   if [ -f /var/lib/kafka/data/.lock ]; then
+     rm -f /var/lib/kafka/data/.lock
+   fi
    ```
 
-3. **Monitor deployment**:
-   ```bash
-   # Watch controller pods come up
-   kubectl get pods -n kafka -l app=kafka-controller -w
-   
-   # Watch broker pods come up
-   kubectl get pods -n kafka -l app=kafka-broker -w
-   ```
+### Key Configuration Parameters
 
-4. **Verify cluster health**:
-   ```bash
-   # Check cluster metadata
-   kubectl exec -it kafka-broker-0 -n kafka -- \
-     kafka-metadata-shell.sh --snapshot /var/lib/kafka/data/__cluster_metadata-0/00000000000000000000.log --print-brokers
-   ```
+| Parameter | Controllers | Brokers |
+|-----------|------------|---------|
+| `node.id` | 0-2 (from pod ordinal) | 3-5 (pod ordinal + 3) |
+| `process.roles` | controller | broker |
+| `listeners` | CONTROLLER://:29093 | EXTERNAL://:9092,INTERNAL://:19092 |
+| `advertised.listeners` | N/A | EXTERNAL://192.168.3.14:9092,INTERNAL://hostname:19092 |
+| `controller.quorum.voters` | 0@controller-0:29093,1@controller-1:29093,2@controller-2:29093 | Same |
+| `log.dirs` | /var/lib/kafka/data | /var/lib/kafka/data |
 
-## Configuration
-
-### Environment Variables
-
-Key environment variables used in the deployments:
-
-| Variable | Description | Single-Node | Cluster |
-|----------|-------------|-------------|---------|
-| `KAFKA_NODE_ID` | Unique broker/controller ID | 1 | Dynamic (0-2 for controllers, 3-5 for brokers) |
-| `KAFKA_PROCESS_ROLES` | Node role (broker/controller) | broker,controller | controller OR broker |
-| `KAFKA_CONTROLLER_QUORUM_VOTERS` | Controller quorum configuration | 1@kafka-0:29093 | 0@controller-0:29093,1@controller-1:29093,2@controller-2:29093 |
-| `CLUSTER_ID` | Kafka cluster identifier | 4L6g3nShT-eMCtK--X86sw | 4L6g3nShT-eMCtK--X86sw |
-| `KAFKA_LOG_DIRS` | Data directory path | /var/lib/kafka/data | /var/lib/kafka/data |
-
-### Networking
+### Network Configuration
 
 #### Ports
+- **9092**: External client connections (EXTERNAL listener)
+- **19092**: Inter-broker communication (INTERNAL listener)
+- **29093**: Controller consensus (CONTROLLER listener)
 
-- **9092**: Client connections (PLAINTEXT)
-- **19092**: Inter-broker communication (PLAINTEXT)
-- **29093**: Controller communication (KRaft consensus)
+#### Services
+- **kafka-broker**: Headless service for broker pod discovery
+- **kafka-client**: ClusterIP service for client connections
+- **kafka-controller**: Headless service for controller pod discovery
 
-#### External Access
+### Storage Management
 
-External access is configured via Ingress:
-- **Host**: kafka.nks.stjeong.com
-- **Port**: 9092
-- **Protocol**: TCP (requires NGINX Ingress with TCP services support)
+Each node uses PersistentVolumeClaims with automatic lock file cleanup:
 
-### Storage
-
-Each Kafka node uses persistent storage:
-- **Single-node**: 10Gi per node
-- **Cluster controllers**: 5Gi per controller
-- **Cluster brokers**: 20Gi per broker
-- **Storage class**: Uses cluster default (configure as needed)
+- **Controllers**: 5Gi per controller
+- **Brokers**: 20Gi per broker
+- **Lock file handling**: Automatic cleanup in init containers prevents startup failures
 
 ## Client Connection
 
@@ -194,285 +185,274 @@ Each Kafka node uses persistent storage:
 bootstrap.servers=kafka-headless.kafka.svc.cluster.local:9092
 
 # Cluster
-bootstrap.servers=kafka-broker-headless.kafka.svc.cluster.local:9092
+bootstrap.servers=kafka-client.kafka.svc.cluster.local:9092
 ```
 
 ### External Clients
 
 ```bash
-# Via Ingress
-bootstrap.servers=kafka.nks.stjeong.com:9092
+# Direct connection (requires network access to 192.168.3.14)
+bootstrap.servers=192.168.3.14:9092
 ```
 
-### Example Producer/Consumer
+### Example Usage
 
 ```bash
+# Create topic
+kubectl exec -it kafka-broker-0 -n kafka -- \
+  kafka-topics.sh --bootstrap-server localhost:9092 \
+  --create --topic test-topic --partitions 3 --replication-factor 3
+
 # Producer
-kubectl exec -it kafka-0 -n kafka -- \
+kubectl exec -it kafka-broker-0 -n kafka -- \
   kafka-console-producer.sh \
   --bootstrap-server localhost:9092 \
   --topic test-topic
 
 # Consumer
-kubectl exec -it kafka-0 -n kafka -- \
+kubectl exec -it kafka-broker-0 -n kafka -- \
   kafka-console-consumer.sh \
   --bootstrap-server localhost:9092 \
-  --topic test-topic \
-  --from-beginning
+  --topic test-topic --from-beginning
 ```
 
 ## Operations
 
-### Quick Commands (Makefile)
+### Using the Makefile
 
-A Makefile is provided for common operations:
+Common operations are automated via Makefile:
 
 ```bash
 # Deployment
-make namespace         # Create kafka namespace
-make deploy-single     # Deploy single-node Kafka
-make deploy-cluster    # Deploy Kafka cluster
+make namespace           # Create kafka namespace
+make deploy-single       # Deploy single-node Kafka
+make deploy-cluster      # Deploy Kafka cluster
 
 # Testing
-make test             # Run dry-run validation tests (safe)
-make test-real        # Run real deployment tests (creates resources)
-make test-real-no-cleanup  # Test and keep resources running
-make quick-test       # Run quick validation
-make validate         # Validate YAML syntax only
+make test               # Run dry-run validation (safe)
+make test-real          # Run real deployment tests
+make quick-test         # Quick validation check
 
 # Management
-make status           # Show Kafka resources
-make logs-single      # View single-node logs
-make logs-broker      # View broker logs
-make logs-controller  # View controller logs
+make status             # Show Kafka resources
+make logs-broker        # View broker logs
+make logs-controller    # View controller logs
+make shell-broker       # Shell into broker-0
+make shell-controller   # Shell into controller-0
 
 # Cleanup
-make clean-single     # Remove single-node deployment
-make clean-cluster    # Remove cluster deployment
-make clean-all        # Remove all Kafka resources
-
-# Development
-make port-forward-single   # Forward port 9092 (single-node)
-make port-forward-cluster  # Forward port 9092 (cluster)
+make clean-single       # Remove single-node deployment
+make clean-cluster      # Remove cluster deployment
+make clean-all          # Remove all Kafka resources
 ```
 
-### Scaling
+### Using Kaskade (Kafka TUI Manager)
 
-#### Single-Node
-The single-node deployment is not designed for scaling. For production use, deploy the cluster version.
+Deploy Kaskade for interactive Kafka management:
 
-#### Cluster Scaling
-
-Scale brokers (not controllers):
 ```bash
-# Scale up brokers
+# Deploy Kaskade
+kubectl run kaskade -n kafka \
+  --image=sauljabin/kaskade:latest \
+  --rm -it -- \
+  kaskade -b kafka-client:9092
+
+# Features available:
+# - View brokers and topics
+# - Monitor consumer groups
+# - Create/delete topics
+# - View partition details
+# - Monitor real-time metrics
+```
+
+### Monitoring and Troubleshooting
+
+#### Check Cluster Health
+
+```bash
+# View all resources
+kubectl get all -n kafka
+
+# Check pod status
+kubectl get pods -n kafka -o wide
+
+# View StatefulSet status
+kubectl get sts -n kafka
+
+# Check persistent volumes
+kubectl get pvc -n kafka
+```
+
+#### View Logs
+
+```bash
+# Controller logs
+kubectl logs -f kafka-controller-0 -n kafka
+
+# Broker logs
+kubectl logs -f kafka-broker-0 -n kafka
+
+# Init container logs (for debugging configuration)
+kubectl logs kafka-broker-0 -n kafka -c config-generator
+```
+
+#### Common Issues and Solutions
+
+1. **Lock File Issues**
+   ```bash
+   # Error: "Failed to acquire lock on file .lock"
+   # Solution: Automatic cleanup in init containers
+   # Manual fix if needed:
+   kubectl exec -it kafka-broker-0 -n kafka -- rm /var/lib/kafka/data/.lock
+   ```
+
+2. **Pod Stuck in Init**
+   ```bash
+   # Check init container logs
+   kubectl logs <pod-name> -n kafka -c config-generator
+
+   # Verify ConfigMap exists
+   kubectl get configmap -n kafka
+   ```
+
+3. **Connection Issues**
+   ```bash
+   # Verify services
+   kubectl get svc -n kafka
+
+   # Check advertised listeners
+   kubectl exec kafka-broker-0 -n kafka -- cat /shared/broker.properties | grep advertised
+   ```
+
+### Scaling Operations
+
+#### Scale Brokers
+
+```bash
+# Scale up (ensure node IDs are adjusted)
 kubectl scale statefulset kafka-broker -n kafka --replicas=5
 
-# Scale down brokers (ensure proper partition reassignment first)
+# Scale down (ensure proper partition reassignment first)
 kubectl scale statefulset kafka-broker -n kafka --replicas=3
 ```
 
-### Monitoring
-
-Check cluster health:
-```bash
-# View logs
-kubectl logs -f -n kafka kafka-broker-0
-
-# Check metrics (if JMX is enabled)
-kubectl exec -it kafka-broker-0 -n kafka -- \
-  kafka-metadata-shell.sh --snapshot /var/lib/kafka/data/__cluster_metadata-0/00000000000000000000.log --print-brokers
-```
+**Note**: Controllers should remain at 3 replicas for quorum stability.
 
 ### Backup and Recovery
 
-1. **Backup data**:
-   ```bash
-   # Create snapshot of PVCs
-   kubectl get pvc -n kafka
-   ```
+```bash
+# List topics and configurations
+kubectl exec -it kafka-broker-0 -n kafka -- \
+  kafka-topics.sh --bootstrap-server localhost:9092 --list
 
-2. **Topic backup**:
-   ```bash
-   # List topics
-   kubectl exec -it kafka-broker-0 -n kafka -- \
-     kafka-topics.sh --bootstrap-server localhost:9092 --list
-   
-   # Describe topic
-   kubectl exec -it kafka-broker-0 -n kafka -- \
-     kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic <topic-name>
-   ```
+# Describe topic for backup
+kubectl exec -it kafka-broker-0 -n kafka -- \
+  kafka-topics.sh --bootstrap-server localhost:9092 \
+  --describe --topic <topic-name>
 
-## Troubleshooting
+# Backup PVC data (platform-specific)
+kubectl get pvc -n kafka
+```
 
-### Common Issues
+## Testing Framework
 
-1. **Pods not starting**:
-   ```bash
-   # Check pod events
-   kubectl describe pod <pod-name> -n kafka
-   
-   # Check logs
-   kubectl logs <pod-name> -n kafka
-   ```
+The project includes comprehensive testing capabilities:
 
-2. **Connection refused**:
-   - Verify services are running: `kubectl get svc -n kafka`
-   - Check ingress configuration: `kubectl get ingress -n kafka`
-   - Ensure advertised listeners are correctly configured
+### Test Types
 
-3. **Storage issues**:
-   ```bash
-   # Check PVC status
-   kubectl get pvc -n kafka
-   
-   # Check available storage classes
-   kubectl get storageclass
-   ```
+1. **Dry-Run Validation** (`make test`)
+   - YAML syntax validation
+   - Resource dependency checking
+   - Configuration compliance
+   - No actual resources created
 
-### Useful Commands
+2. **Real Deployment Testing** (`make test-real`)
+   - Deploys actual Kafka cluster
+   - Validates pod readiness
+   - Tests Kafka functionality
+   - Automatic cleanup included
+
+3. **Quick Validation** (`make quick-test`)
+   - Basic syntax checking
+   - Resource count verification
+
+### Running Tests
 
 ```bash
-# Get all Kafka resources
-kubectl get all -n kafka
+# Safe validation (no resources created)
+./test/test-deployment.sh
 
-# Describe StatefulSets
-kubectl describe statefulset -n kafka
+# Real deployment test with cleanup
+./test/test-deployment-real.sh
 
-# Check resource usage
-kubectl top pods -n kafka
+# Keep resources after test
+./test/test-deployment-real.sh --no-cleanup
 
-# Delete and recreate (CAUTION: Data loss)
-kubectl delete -f single/  # or cluster/
-kubectl apply -f single/   # or cluster/
+# Custom namespace
+./test/test-deployment-real.sh --namespace kafka-test
 ```
 
 ## Security Considerations
 
-1. **Network Policies**: Consider implementing network policies to restrict traffic
-2. **TLS/SSL**: For production, enable SSL for all listeners
-3. **Authentication**: Configure SASL/SCRAM or mTLS for client authentication
-4. **Authorization**: Enable Kafka ACLs for fine-grained access control
-5. **Secrets Management**: Use Kubernetes secrets for sensitive configurations
+### Current Implementation
 
-## Testing
+- **PLAINTEXT** communication (suitable for development)
+- **No authentication** configured
+- **Basic network isolation** via Kubernetes namespaces
 
-This project includes a comprehensive testing framework to validate all deployment configurations before applying them to your Kubernetes cluster.
+### Production Recommendations
 
-### Test Suite Overview
+1. **Enable TLS/SSL** for all listeners
+2. **Configure SASL/SCRAM** or mTLS authentication
+3. **Implement Kafka ACLs** for authorization
+4. **Use NetworkPolicies** for traffic restriction
+5. **Store secrets in Kubernetes Secrets** (not ConfigMaps)
+6. **Enable audit logging** for compliance
 
-The `test/` directory contains automated test scripts with two testing modes:
+## Best Practices Implemented
 
-**Dry-Run Validation** (Safe, no resources created):
-- ✅ YAML syntax for all Kubernetes manifests
-- ✅ Resource definitions and dependencies
-- ✅ Configuration parameters and environment variables
-- ✅ Port mappings and service definitions
-- ✅ Storage requirements and volume specifications
+1. **Configuration Management**
+   - ConfigMap + Init Container pattern for clean separation
+   - Dynamic configuration generation at runtime
+   - No hardcoded values in container commands
 
-**Real Deployment Testing** (Creates actual resources):
-- ✅ Namespace and resource creation
-- ✅ Pod startup and readiness verification
-- ✅ Kafka broker connectivity and functionality
-- ✅ Topic creation and replication
-- ✅ Producer/consumer message flow
-- ✅ Service discovery and internal connectivity
-- ✅ Persistent volume binding and data persistence
-- ✅ Ingress configuration and external access
+2. **Service Naming**
+   - Clear, descriptive service names
+   - Consistent naming conventions
+   - Separation of concerns (broker vs client services)
 
-### Running Tests
+3. **Resource Management**
+   - Proper resource requests and limits
+   - Persistent storage for data durability
+   - Automatic lock file cleanup
 
-The testing framework provides two modes: dry-run validation and real deployment testing.
+4. **Operational Excellence**
+   - Comprehensive health checks
+   - Detailed logging at each stage
+   - Graceful shutdown handling
 
-#### Dry-Run Tests (Safe Validation)
-```bash
-# Validate configurations without creating resources
-make test              # Comprehensive validation (8 test categories)
-make quick-test        # Quick validation check
-make validate          # YAML syntax validation only
-```
-
-#### Real Deployment Tests (Creates Actual Resources)
-```bash
-# Deploy and test actual Kafka instances
-make test-real         # Full deployment test with automatic cleanup
-make test-real-no-cleanup  # Test and keep resources running
-
-# Direct execution with options
-./test/test-deployment-real.sh              # Default: auto-cleanup
-./test/test-deployment-real.sh --no-cleanup  # Keep resources after test
-./test/test-deployment-real.sh --namespace kafka-test  # Use custom namespace
-```
-
-**⚠️ Warning**: Real tests will create actual resources in your cluster. They include:
-- Namespace creation
-- Pod deployments with readiness checks
-- Kafka functionality testing (topics, producers, consumers)
-- Service connectivity verification
-- Persistent storage validation
-- Automatic cleanup (unless --no-cleanup is specified)
-
-### Test Scripts
-
-1. **`test-deployment.sh`** - Dry-run validation suite:
-   - Kubernetes manifest validation
-   - Deployment structure verification
-   - Resource requirement analysis
-   - Configuration compliance checks
-   - Safe to run anytime (no resources created)
-
-2. **`test-deployment-real.sh`** - Real deployment testing:
-   - Actually deploys Kafka to your cluster
-   - Waits for pods to become ready
-   - Tests Kafka functionality (topics, messages)
-   - Validates services and storage
-   - Includes automatic cleanup
-
-3. **`quick-test.sh`** - Lightweight validation:
-   - Basic YAML syntax checking
-   - Resource count verification
-   - Quick health summary
-
-### Test Output
-
-Tests provide colored output for easy reading:
-- 🟢 **Green**: Test passed
-- 🔴 **Red**: Test failed
-- 🟡 **Yellow**: Warnings or info
-- 🔵 **Blue**: Test headers
-
-Test results are saved to timestamped files: `test/test-results-YYYYMMDD-HHMMSS.txt`
-
-### CI/CD Integration
-
-The test scripts return appropriate exit codes:
-- `0` - All tests passed
-- `1` - One or more tests failed
-
-This makes them suitable for CI/CD pipeline integration:
-```yaml
-# Example GitHub Actions
-- name: Validate Kafka Deployment
-  run: make test
-```
-
-See [test/README.md](test/README.md) for detailed testing documentation and examples.
+5. **Maintainability**
+   - Clear directory structure
+   - Separated configuration files
+   - Comprehensive documentation
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
-4. Test thoroughly in both single and cluster modes
-5. Submit a pull request
+3. Test changes with both dry-run and real deployment tests
+4. Ensure ConfigMaps are updated for configuration changes
+5. Update documentation as needed
+6. Submit a pull request
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
+Apache License 2.0 - See LICENSE file for details
 
 ## References
 
 - [Apache Kafka Documentation](https://kafka.apache.org/documentation/)
 - [Kafka KRaft Mode](https://kafka.apache.org/documentation/#kraft)
 - [Kubernetes StatefulSets](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/)
-- [NGINX Ingress TCP Services](https://kubernetes.github.io/ingress-nginx/user-guide/exposing-tcp-udp-services/)
+- [ConfigMaps and Init Containers](https://kubernetes.io/docs/concepts/configuration/configmap/)
+- [Kaskade - Kafka TUI](https://github.com/sauljabin/kaskade)
