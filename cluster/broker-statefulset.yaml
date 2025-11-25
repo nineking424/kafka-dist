@@ -31,6 +31,8 @@ spec:
           mountPath: /shared
         - name: kafka-data
           mountPath: /var/lib/kafka/data
+        - name: external-ips
+          mountPath: /config/external-ips
       containers:
       - name: broker
         image: apache/kafka:4.1.1
@@ -73,6 +75,9 @@ spec:
           defaultMode: 0755
       - name: shared-config
         emptyDir: {}
+      - name: external-ips
+        configMap:
+          name: kafka-external-ips
   volumeClaimTemplates:
   - metadata:
       name: kafka-data

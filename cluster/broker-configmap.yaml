@@ -1,3 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-external-ips
+  namespace: kafka
+data:
+  kafka-broker-0: "192.168.3.14"
+  kafka-broker-1: "192.168.3.15"
+  kafka-broker-2: "192.168.3.16"
+  
+---
 # ConfigMap for Kafka Broker configuration
 apiVersion: v1
 kind: ConfigMap
@@ -35,7 +46,9 @@ data:
     echo "Generating broker configuration for NODE_ID=$NODE_ID"
 
     # Set dynamic advertised listeners
-    ADVERTISED_LISTENERS="EXTERNAL://${HOSTNAME}.kafka-broker:9092,INTERNAL://${HOSTNAME}.kafka-broker:19092"
+    # ADVERTISED_LISTENERS="EXTERNAL://${HOSTNAME}.kafka-broker:9092,INTERNAL://${HOSTNAME}.kafka-broker:19092"
+    EXTERNAL_IP=$(cat /config/external-ips/${HOSTNAME})
+    ADVERTISED_LISTENERS="EXTERNAL://${EXTERNAL_IP}:9092,INTERNAL://${HOSTNAME}.kafka-broker:19092"
 
     # Copy base properties
     cp /config/broker-base.properties /shared/broker.properties

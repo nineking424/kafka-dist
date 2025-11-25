@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-broker-0-loadbalancer
+  namespace: kafka
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 192.168.3.14
+  selector:
+    app: kafka-broker
+    statefulset.kubernetes.io/pod-name: kafka-broker-0
+  ports:
+  - port: 9092
+    targetPort: 9092
+    protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-broker-1-loadbalancer
+  namespace: kafka
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 192.168.3.15
+  selector:
+    app: kafka-broker
+    statefulset.kubernetes.io/pod-name: kafka-broker-1
+  ports:
+  - port: 9092
+    targetPort: 9092
+    protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-broker-2-loadbalancer
+  namespace: kafka
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 192.168.3.16
+  selector:
+    app: kafka-broker
+    statefulset.kubernetes.io/pod-name: kafka-broker-2
+  ports:
+  - port: 9092
+    targetPort: 9092
+    protocol: TCP
+---
